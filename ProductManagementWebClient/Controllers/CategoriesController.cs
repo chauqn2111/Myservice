@@ -6,46 +6,55 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
 using BusinessObjects;
+using System.Net.Http.Headers;
+using System.Text.Json;
 
 namespace ProductManagementWebClient.Controllers
 {
     public class CategoriesController : Controller
     {
-        private readonly MyDBContext _context;
-
-        public CategoriesController(MyDBContext context)
+        private readonly HttpClient _httpclient = null;
+        private string CategoryApiUrl = "";
+        public CategoriesController()
         {
-            _context = context;
+            _httpclient = new HttpClient();
+            var contentType = new MediaTypeWithQualityHeaderValue("application/json");
+            _httpclient.DefaultRequestHeaders.Accept.Add(contentType);
+            CategoryApiUrl = "https://localhost:7027/api/Categories";
         }
 
         // GET: Categories
         public async Task<IActionResult> Index()
         {
-              return _context.Categorys != null ? 
-                          View(await _context.Categorys.ToListAsync()) :
-                          Problem("Entity set 'MyDBContext.Categorys'  is null.");
+              HttpResponseMessage response = await _httpclient.GetAsync(CategoryApiUrl);
+            string strData = await response.Content.ReadAsStringAsync();
+            var options = new JsonSerializerOptions
+            {
+                PropertyNameCaseInsensitive = true,
+            };
+            List<Category> listCategorys = JsonSerializer.Deserialize<List<Category>>(strData, options);
+            return View(listCategorys);
         }
 
         // GET: Categories/Details/5
-        public async Task<IActionResult> Details(int? id)
+        public async Task<IActionResult> Details(int id)
         {
-            if (id == null || _context.Categorys == null)
+            HttpResponseMessage response = await _httpclient.GetAsync($"{CategoryApiUrl}/{id}");
+            if (response.IsSuccessStatusCode)
             {
-                return NotFound();
+                string strData = await response.Content.ReadAsStringAsync();
+                var options = new JsonSerializerOptions
+                {
+                    PropertyNameCaseInsensitive = true,
+                };
+                Product p = JsonSerializer.Deserialize<Product>(strData, options);
+                return View(p);
             }
-
-            var category = await _context.Categorys
-                .FirstOrDefaultAsync(m => m.CategoryId == id);
-            if (category == null)
-            {
-                return NotFound();
-            }
-
-            return View(category);
+            return View();
         }
 
         // GET: Categories/Create
-        public IActionResult Create()
+        public ActionResult Create()
         {
             return View();
         }
@@ -55,31 +64,41 @@ namespace ProductManagementWebClient.Controllers
         // For more details, see http://go.microsoft.com/fwlink/?LinkId=317598.
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Create([Bind("CategoryId,CategoryName")] Category category)
+        public async Task<IActionResult> Create(Category c)
         {
             if (ModelState.IsValid)
             {
-                _context.Add(category);
-                await _context.SaveChangesAsync();
-                return RedirectToAction(nameof(Index));
+                string strData = JsonSerializer.Serialize(c);
+                var contentData = new StringContent(strData, System.Text.Encoding.UTF8, "application/json");
+                HttpResponseMessage response = await _httpclient.PostAsync(CategoryApiUrl, contentData);
+                if (response.IsSuccessStatusCode)
+                {
+                    TempData["Message"] = "Category inserted successfully";
+                    return RedirectToAction(nameof(Index));
+                }
+                else
+                {
+                    TempData["Message"] = "Error while call Web API";
+                }
             }
-            return View(category);
+            return View(c);
         }
 
         // GET: Categories/Edit/5
-        public async Task<IActionResult> Edit(int? id)
+        public async Task<IActionResult> Edit(int id)
         {
-            if (id == null || _context.Categorys == null)
+            HttpResponseMessage response = await _httpclient.GetAsync($"{CategoryApiUrl}/{id}");
+            if (response.IsSuccessStatusCode)
             {
-                return NotFound();
+                string strData = await response.Content.ReadAsStringAsync();
+                var options = new JsonSerializerOptions
+                {
+                    PropertyNameCaseInsensitive = true,
+                };
+                Category c = JsonSerializer.Deserialize<Category>(strData, options);
+                return View(c);
             }
-
-            var category = await _context.Categorys.FindAsync(id);
-            if (category == null)
-            {
-                return NotFound();
-            }
-            return View(category);
+            return View();
         }
 
         // POST: Categories/Edit/5
@@ -87,76 +106,67 @@ namespace ProductManagementWebClient.Controllers
         // For more details, see http://go.microsoft.com/fwlink/?LinkId=317598.
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Edit(int id, [Bind("CategoryId,CategoryName")] Category category)
+        public async Task<IActionResult> Edit(int id, Category c)
         {
-            if (id != category.CategoryId)
-            {
-                return NotFound();
-            }
-
             if (ModelState.IsValid)
             {
-                try
+                string strData = JsonSerializer.Serialize(c);
+                var contentData = new StringContent(strData, System.Text.Encoding.UTF8, "application/json");
+                HttpResponseMessage response = await _httpclient.PutAsync($"{CategoryApiUrl}/{id}", contentData);
+                if (response.IsSuccessStatusCode)
                 {
-                    _context.Update(category);
-                    await _context.SaveChangesAsync();
+                    TempData["Message"] = "Category update successfully";
+                    return RedirectToAction(nameof(Index));
                 }
-                catch (DbUpdateConcurrencyException)
+                else
                 {
-                    if (!CategoryExists(category.CategoryId))
-                    {
-                        return NotFound();
-                    }
-                    else
-                    {
-                        throw;
-                    }
+                    TempData["Message"] = "Error while call Web API";
                 }
-                return RedirectToAction(nameof(Index));
             }
-            return View(category);
+            return View(c);
         }
 
         // GET: Categories/Delete/5
-        public async Task<IActionResult> Delete(int? id)
+        public async Task<IActionResult> Delete(int id)
         {
-            if (id == null || _context.Categorys == null)
+            HttpResponseMessage response = await _httpclient.GetAsync($"{CategoryApiUrl}/{id}");
+            if (response.IsSuccessStatusCode)
             {
-                return NotFound();
+                string strData = await response.Content.ReadAsStringAsync();
+                var options = new JsonSerializerOptions
+                {
+                    PropertyNameCaseInsensitive = true,
+                };
+                Product p = JsonSerializer.Deserialize<Product>(strData, options);
+                return View(p);
             }
-
-            var category = await _context.Categorys
-                .FirstOrDefaultAsync(m => m.CategoryId == id);
-            if (category == null)
-            {
-                return NotFound();
-            }
-
-            return View(category);
+            return View();
         }
 
         // POST: Categories/Delete/5
-        [HttpPost, ActionName("Delete")]
+        [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> DeleteConfirmed(int id)
+        public async Task<IActionResult> Delete(int id, IFormCollection collection)
         {
-            if (_context.Categorys == null)
+            if (ModelState.IsValid)
             {
-                return Problem("Entity set 'MyDBContext.Categorys'  is null.");
+                HttpResponseMessage response = await _httpclient.DeleteAsync($"{CategoryApiUrl}/{id}");
+                if (response.IsSuccessStatusCode)
+                {
+                    TempData["Message"] = "Category delete successfully";
+                    return RedirectToAction(nameof(Index));
+                }
+                else
+                {
+                    TempData["Message"] = "Error while call Web API";
+                }
             }
-            var category = await _context.Categorys.FindAsync(id);
-            if (category != null)
-            {
-                _context.Categorys.Remove(category);
-            }
-            
-            await _context.SaveChangesAsync();
             return RedirectToAction(nameof(Index));
         }
 
-        private bool CategoryExists(int id)
-        {
-          return (_context.Categorys?.Any(e => e.CategoryId == id)).GetValueOrDefault();
-        }
+        //private bool CategoryExists(int id)
+        //{
+        //  return (_context.Categorys?.Any(e => e.CategoryId == id)).GetValueOrDefault();
+        //}
     }
 }

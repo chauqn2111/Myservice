@@ -6,6 +6,8 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using BusinessObjects;
+using Repositories;
+using NuGet.Protocol.Core.Types;
 
 namespace ProductManagementAPI.Controllers
 {
@@ -13,111 +15,58 @@ namespace ProductManagementAPI.Controllers
     [ApiController]
     public class CategoriesController : ControllerBase
     {
-        private readonly MyDBContext _context;
-
-        public CategoriesController(MyDBContext context)
-        {
-            _context = context;
-        }
-
-        // GET: api/Categories
+        private ICategoryRepository _reponsitory = new CategoryRepository();
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<Category>>> GetCategorys()
-        {
-          if (_context.Categorys == null)
-          {
-              return NotFound();
-          }
-            return await _context.Categorys.ToListAsync();
-        }
 
-        // GET: api/Categories/5
+        public ActionResult<IEnumerable<Category>> GetCategorys() => _reponsitory.GetCategorys();
+        
         [HttpGet("{id}")]
-        public async Task<ActionResult<Category>> GetCategory(int id)
+        public ActionResult<Category> GetCategoryById(int id)
         {
-          if (_context.Categorys == null)
-          {
-              return NotFound();
-          }
-            var category = await _context.Categorys.FindAsync(id);
-
-            if (category == null)
+            var category = _reponsitory.GetCategoryById(id);
+            if(category == null)
             {
                 return NotFound();
             }
-
             return category;
+        }
+        [HttpPost]
+        public IActionResult PostCategory(Category c)
+        {
+            try
+            {
+                _reponsitory.SaveCategory(c);
+                return NoContent();
+            }
+            catch (Exception)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, "Error creating employee record");
+            }
         }
 
         // PUT: api/Categories/5
         // To protect from overposting attacks, see https://go.microsoft.com/fwlink/?linkid=2123754
         [HttpPut("{id}")]
-        public async Task<IActionResult> PutCategory(int id, Category category)
+        public IActionResult UpdatetCategory(int id, Category c)
         {
-            if (id != category.CategoryId)
+            var temp = _reponsitory.GetCategoryById(id);
+            if(temp == null)
             {
-                return BadRequest();
+                return NotFound();
             }
-
-            _context.Entry(category).State = EntityState.Modified;
-
-            try
-            {
-                await _context.SaveChangesAsync();
-            }
-            catch (DbUpdateConcurrencyException)
-            {
-                if (!CategoryExists(id))
-                {
-                    return NotFound();
-                }
-                else
-                {
-                    throw;
-                }
-            }
-
+            _reponsitory.UpdateCategory(c);
             return NoContent();
         }
-
-        // POST: api/Categories
-        // To protect from overposting attacks, see https://go.microsoft.com/fwlink/?linkid=2123754
-        [HttpPost]
-        public async Task<ActionResult<Category>> PostCategory(Category category)
-        {
-          if (_context.Categorys == null)
-          {
-              return Problem("Entity set 'MyDBContext.Categorys'  is null.");
-          }
-            _context.Categorys.Add(category);
-            await _context.SaveChangesAsync();
-
-            return CreatedAtAction("GetCategory", new { id = category.CategoryId }, category);
-        }
-
-        // DELETE: api/Categories/5
         [HttpDelete("{id}")]
-        public async Task<IActionResult> DeleteCategory(int id)
+        public IActionResult DeleteCategory(int id)
         {
-            if (_context.Categorys == null)
+            var temp = _reponsitory.GetCategoryById(id);
+            if (temp == null)
             {
                 return NotFound();
             }
-            var category = await _context.Categorys.FindAsync(id);
-            if (category == null)
-            {
-                return NotFound();
-            }
-
-            _context.Categorys.Remove(category);
-            await _context.SaveChangesAsync();
-
+            _reponsitory.DeleteCategory(temp);
             return NoContent();
-        }
-
-        private bool CategoryExists(int id)
-        {
-            return (_context.Categorys?.Any(e => e.CategoryId == id)).GetValueOrDefault();
         }
     }
 }
